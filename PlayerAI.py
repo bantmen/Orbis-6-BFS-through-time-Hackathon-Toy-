@@ -3,11 +3,11 @@ from PythonClientAPI.libs.Game.MapOutOfBoundsException import *
 
 import time
 from copy import deepcopy
+from Queue import Queue
 
 SAFE, UNSAFE = 1, 0
 
 def timeit(method):
-
     def timed(*args, **kw):
         ts = int(round(time.time() * 1000))
         result = method(*args, **kw)
@@ -15,12 +15,59 @@ def timeit(method):
 
         print('%r ran in %.0f ms'%(method.__name__, te-ts))
         return result
-
     return timed
+
+class Node:
+    def __init__(self, x, y, direction, time, can_rotate):
+        self.x = x
+        self.y = y
+        self.direction = direction
+        self.time = time
+        self.can_rotate = can_rotate
+
+def change_direction(x, y, direction, total_height, total_width):
+    if direction == Direction.LEFT:
+        dx, dy = -1, 0
+    elif direction == Direction.RIGHT:
+        dx, dy = 1, 0
+    elif direction == Direction.DOWN:
+        dx, dy = 0, 1
+    else: #UP
+        dx, dy = 0, -1
+
+    return (x+dx) % total_height, (x+dy) % total_width
 
 class PlayerAI:
     def __init__(self):
         pass
+
+    def get_n_futures(self, n):
+        return
+
+    def target_closest_point(self, player, gameboard):
+        n_futures = self.get_n_futures(10)
+
+        q = Queue()
+        q.put(Node(player.x, player.y, player.direction, 0, True))
+
+        while not q.empty():
+            cur_node = q.get()
+
+            if gameboard.power_up_at_tile[cur_node.x][cur_node.y]: # generalize it to any point
+                return cur_node.x, cur_node.y # fix!
+
+            new_x, new_y = change_direction(cur_node.x, cur_node.y, cur_node.position, gameboard.height, gameboard.width)
+
+            if n_futures[cur_node.time][new_x][new_y] == SAFE:
+                q.put(Node(new_x, new_y, cur_node.position, cur_node.time+1, True))
+
+            if cur_node.can_rotate:
+                for dirr in [Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT]:
+                    if dirr != cur_node.direction:
+                        q.put(Node(cur_node.x, cur_node.y, dirr, cur_node.time+1, False))
+
+        return -1, -1
+
 
     @timeit
     def get_move(self, gameboard, player, opponent):
@@ -95,16 +142,7 @@ class PlayerAI:
 
             #fill bullets
             for bull in bulls:
-                if bull.direction == Direction.LEFT:
-                    dx, dy = -1, 0
-                elif bull.direction == Direction.RIGHT:
-                    dx, dy = 1, 0
-                elif bull.direction == Direction.DOWN:
-                    dx, dy = 0, 1
-                else: #UP
-                    dx, dy = 0, -1
-                bull.x = (bull.x+dx)%gameboard.height
-                bull.y = (bull.y+dy)%gameboard.width
+                bull.x, bull.y = change_direction(bull.x, bull.y, bull.direction, gameboard.width, gameboard.height)
                 safe_spots[bull.x][bull.y] = UNSAFE
 
 
@@ -118,4 +156,3 @@ class PlayerAI:
             n_futures.append(safe_spots)
 
         return Move.NONE
-
