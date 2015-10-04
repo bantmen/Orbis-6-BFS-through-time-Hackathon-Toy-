@@ -3,7 +3,7 @@ from PythonClientAPI.libs.Game.MapOutOfBoundsException import *
 
 import time
 from copy import deepcopy
-from Queue import Queue
+from queue import Queue
 
 SAFE, UNSAFE = 1, 0
 
@@ -41,25 +41,23 @@ class PlayerAI:
     def __init__(self):
         pass
 
-    def get_n_futures(self, n):
-        return
-
-    def target_closest_point(self, player, gameboard):
-        n_futures = self.get_n_futures(10)
-
+    def target_closest_point(self, player, gameboard, n, n_futures):
         q = Queue()
         q.put(Node(player.x, player.y, player.direction, 0, True))
 
         while not q.empty():
             cur_node = q.get()
 
+            if cur_node.time > n:
+                continue
+
             if gameboard.power_up_at_tile[cur_node.x][cur_node.y]: # generalize it to any point
                 return cur_node.x, cur_node.y # fix!
 
-            new_x, new_y = change_direction(cur_node.x, cur_node.y, cur_node.position, gameboard.height, gameboard.width)
+            new_x, new_y = change_direction(cur_node.x, cur_node.y, cur_node.direction, gameboard.height, gameboard.width)
 
             if n_futures[cur_node.time][new_x][new_y] == SAFE:
-                q.put(Node(new_x, new_y, cur_node.position, cur_node.time+1, True))
+                q.put(Node(new_x, new_y, cur_node.direction, cur_node.time+1, True))
 
             if cur_node.can_rotate:
                 for dirr in [Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT]:
@@ -88,6 +86,7 @@ class PlayerAI:
         bulls = gameboard.bullets
 
         #generate time series
+        n = 10
         for t in range(n):
             safe_spots = deepcopy(base_matrix)
             
@@ -154,5 +153,7 @@ class PlayerAI:
             bulls = temp
 
             n_futures.append(safe_spots)
+
+        print(self.target_closest_point(player, gameboard, n, n_futures))
 
         return Move.NONE
