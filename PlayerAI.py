@@ -23,6 +23,28 @@ def laser_will_hit(p1, p2, base_matrix, gameboard):
         return False
 
     if p1.x == p2.x:
+        i_y = p1.y
+        while base_matrix[p1.x][i_y] == SAFE:
+            i_y = (i_y + 1) % gameboard.height
+        if i_y = p2.y:
+            return True
+        while base_matrix[p1.x][i_y] == SAFE:
+            i_y = (i_y - 1) % gameboard.height
+        if i_y = p2.y:
+            return True
+
+    if p1.y == p2.y:
+        i_x = p1.x
+        while base_matrix[i_x][p1.y] == SAFE:
+            i_x = (i_x + 1) % gameboard.width
+        if i_x = p2.x:
+            return True
+        while base_matrix[i_x][p1.y] == SAFE:
+            i_x = (i_x - 1) % gameboard.width
+        if i_x = p2.x:
+            return True
+
+    return False
 
 
 class Node:
@@ -281,6 +303,17 @@ class PlayerAI:
         if gameboard.is_turret_at_tile(i_x, i_y) and not gameboard.turret_at_tile[i_x][i_y].is_dead:
             play = Move.SHOOT
             new_x, new_y = player.x, player.y
+
+        if player.laser_count > 0:
+            if laser_will_hit(player, opponent, base_matrix, gameboard):
+                play = Move.LASER
+                new_x, new_y = player.x, player.y
+
+        if opponent.laser_count > 0:
+            if laser_will_hit(opponent, player, base_matrix, gameboard):
+                if player.shield_count > 0:
+                    play = Move.SHIELD
+                    new_x, new_y = player.x, player.y
 
         if player.shield_count > 0:
             if (n_futures[1][new_x][new_y] == UNSAFE):
