@@ -18,12 +18,14 @@ def timeit(method):
     return timed
 
 class Node:
-    def __init__(self, x, y, direction, time, can_rotate):
+    def __init__(self, x, y, direction, time, can_rotate, traveled, initial_d):
         self.x = x
         self.y = y
         self.direction = direction
         self.time = time
         self.can_rotate = can_rotate
+        self.traveled = {} 
+        self.initial_d = initial_d
 
 def change_direction(x, y, direction, total_height, total_width):
     if direction == Direction.LEFT:
@@ -35,36 +37,51 @@ def change_direction(x, y, direction, total_height, total_width):
     else: #UP
         dx, dy = 0, -1
 
-    return (x+dx) % total_height, (x+dy) % total_width
+    return (x+dx) % total_width, (y+dy) % total_height
 
 class PlayerAI:
     def __init__(self):
-        pass
+        self.hardcoded = [Move.FORWARD, Move.FACE_DOWN, Move.FORWARD, Move.FORWARD, Move.FACE_RIGHT, Move.FORWARD, Move.FORWARD, Move.FACE_UP, Move.FORWARD, Move.FORWARD, Move.FACE_RIGHT, Move.FORWARD]
+        self.hardcoded_i = -1
 
+    @timeit
     def target_closest_point(self, player, gameboard, n, n_futures):
         q = Queue()
-        q.put(Node(player.x, player.y, player.direction, 0, True))
+        q.put(Node(player.x, player.y, player.direction, 0, True, dict(), None))
 
         while not q.empty():
             cur_node = q.get()
+            #print(cur_node.x, cur_node.y)
 
-            if cur_node.time > n:
+            if cur_node.time >= n-1:
                 continue
 
             if gameboard.power_up_at_tile[cur_node.x][cur_node.y]: # generalize it to any point
-                return cur_node.x, cur_node.y # fix!
+                # return cur_node.x, cur_node.y # fix!
+                return cur_node.initial_d
 
             new_x, new_y = change_direction(cur_node.x, cur_node.y, cur_node.direction, gameboard.height, gameboard.width)
+            #print("new {}, {}, {}, {}, {}, {}, {}".format(n_futures[cur_node.time+1][new_y][new_x], len(n_futures), len(n_futures[0]), len(n_futures[0][0]), cur_node.time+1, new_x, new_y))
 
-            if n_futures[cur_node.time][new_x][new_y] == SAFE:
-                q.put(Node(new_x, new_y, cur_node.direction, cur_node.time+1, True))
+            if (cur_node.time+1 <= n-1) and (n_futures[cur_node.time+1][new_x][new_y] == SAFE) and (not ((new_x, new_y) in cur_node.traveled)):
+                temp = cur_node.traveled
+                temp[(new_x, new_y)] = 1
+                if cur_node.time == 0:
+                    initial_d = cur_node.direction
+                else:
+                    initial_d = cur_node.initial_d
+                q.put(Node(new_x, new_y, cur_node.direction, cur_node.time+1, True, temp, initial_d))
 
-            if cur_node.can_rotate:
+            if cur_node.can_rotate and (n_futures[cur_node.time+1][cur_node.x][cur_node.y] == SAFE):
                 for dirr in [Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT]:
                     if dirr != cur_node.direction:
-                        q.put(Node(cur_node.x, cur_node.y, dirr, cur_node.time+1, False))
+                        if cur_node.time == 0:
+                            initial_d = dirr
+                        else:
+                            initial_d = cur_node.initial_d
+                        q.put(Node(cur_node.x, cur_node.y, dirr, cur_node.time+1, False, cur_node.traveled, initial_d))
 
-        return -1, -1
+        return None
 
 
     @timeit
@@ -86,7 +103,7 @@ class PlayerAI:
         bulls = gameboard.bullets
 
         #generate time series
-        n = 10
+        n = 23
         for t in range(n):
             safe_spots = deepcopy(base_matrix)
             
@@ -108,7 +125,7 @@ class PlayerAI:
             this_turn = curr_turn + t
             #laser
             for tur in turs:
-                if this_turn%(tur.fire_time + tur.cooldown_time) < tur.fire_time:
+                if (this_turn-1)%(tur.fire_time + tur.cooldown_time) < tur.fire_time:
                     #CHECK IF IT'S ALIVE
                     
                     #go up
@@ -141,7 +158,7 @@ class PlayerAI:
 
             #fill bullets
             for bull in bulls:
-                bull.x, bull.y = change_direction(bull.x, bull.y, bull.direction, gameboard.width, gameboard.height)
+                bull.x, bull.y = change_direction(bull.x, bull.y, bull.direction, gameboard.height, gameboard.width)
                 safe_spots[bull.x][bull.y] = UNSAFE
 
 
@@ -154,6 +171,24 @@ class PlayerAI:
 
             n_futures.append(safe_spots)
 
-        print(self.target_closest_point(player, gameboard, n, n_futures))
+        # print(n_futures[0])
+        # print(n_futures[1])
 
-        return Move.NONE
+        new_dirr = self.target_closest_point(player, gameboard, n, n_futures)
+        p_dirr = player.direction
+        #print(new_dirr)
+        if new_dirr == None:
+            return Move.NONE
+        elif new_dirr == p_dirr:
+            return Move.FORWARD
+        elif new_dirr == Direction.UP:
+            return Move.FACE_UP
+        elif new_dirr == Direction.DOWN:
+            return Move.FACE_DOWN
+        elif new_dirr == Direction.LEFT:
+            return Move.FACE_LEFT
+        else:
+            return Move.FACE_RIGHT
+
+        # self.hardcoded_i += 1
+        # return self.hardcoded[self.hardcoded_i%len(self.hardcoded)]
