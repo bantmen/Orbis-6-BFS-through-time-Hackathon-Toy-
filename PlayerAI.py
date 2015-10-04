@@ -48,40 +48,37 @@ def change_direction(x, y, direction, total_height, total_width):
 
     return (x+dx) % total_width, (y+dy) % total_height
 
-@timeit
 def in_turret_contact(node, gameboard):
-    #results = []
-
     #go up
     x = node.x
     y = (node.y + 1)%gameboard.height
-    while (not gameboard.is_wall_at_tile(x, y)):
-        if gameboard.is_turret_at_tile(x, y):
-            return Direction.UP
+    while (not gameboard.is_wall_at_tile(x, y)) and (y != node.y):
+        if gameboard.is_turret_at_tile(x, y) and not gameboard.turret_at_tile[x][y].is_dead:
+            return Direction.DOWN
         y = (y + 1) % gameboard.height
 
     #go down
     x = node.x
     y = (node.y - 1)%gameboard.height
-    while (not gameboard.is_wall_at_tile(x, y)):
-        if gameboard.is_turret_at_tile(x, y):
-            return Direction.DOWN
+    while (not gameboard.is_wall_at_tile(x, y)) and (y != node.y):
+        if gameboard.is_turret_at_tile(x, y) and not gameboard.turret_at_tile[x][y].is_dead:
+            return Direction.UP
         y = (y - 1) % gameboard.height
 
     #go left
     y = node.y
     x = (node.x + 1)%gameboard.width
-    while (not gameboard.is_wall_at_tile(x, y)):
-        if gameboard.is_turret_at_tile(x, y):
-            return Direction.LEFT
+    while (not gameboard.is_wall_at_tile(x, y)) and (x != node.x):
+        if gameboard.is_turret_at_tile(x, y) and not gameboard.turret_at_tile[x][y].is_dead:
+            return Direction.RIGHT
         x = (x + 1) % gameboard.width
 
     #go right
     y = node.y
     x = (node.x - 1)%gameboard.width
-    while (not gameboard.is_wall_at_tile(x, y)):
-        if gameboard.is_turret_at_tile(x, y):
-            return Direction.RIGHT
+    while (not gameboard.is_wall_at_tile(x, y)) and (x != node.x):
+        if gameboard.is_turret_at_tile(x, y) and not gameboard.turret_at_tile[x][y].is_dead:
+            return Direction.LEFT
         x = (x - 1) % gameboard.width
 
     return None
@@ -91,6 +88,7 @@ class PlayerAI:
     def __init__(self):
         self.hardcoded = [Move.FORWARD, Move.FACE_DOWN, Move.FORWARD, Move.FORWARD, Move.FACE_RIGHT, Move.FORWARD, Move.FORWARD, Move.FACE_UP, Move.FORWARD, Move.FORWARD, Move.FACE_RIGHT, Move.FORWARD]
         self.hardcoded_i = -1
+        self.shot_turret = False
 
     @timeit
     def target_closest_point(self, player, gameboard, n, n_futures):
@@ -110,12 +108,20 @@ class PlayerAI:
 
             turret_dirr = in_turret_contact(cur_node, gameboard)
             if turret_dirr:
-                if turret_dirr != cur_node.direction: # need 2 turns
-                    if cur_node.time == 0:
-                        initial_d = turret_dirr
-                    else:
-                        initial_d = cur_node.initial_d
-                    q.put(Node(cur_node.x, cur_node.y, turret_dirr, cur_node.time+1, True, temp, initial_d))
+                if turret_dirr != cur_node.direction: # need 4 turns
+                    if (cur_node.time+1 <= n-1) and (n_futures[cur_node.time+1][cur_node.x][cur_node.y] == SAFE):
+                        if cur_node.time == 0:
+                            initial_d = turret_dirr
+                        else:
+                            initial_d = cur_node.initial_d
+                        q.put(Node(cur_node.x, cur_node.y, turret_dirr, cur_node.time+1, True, cur_node.traveled, initial_d))
+                else: # need 3 turn
+                    if (cur_node.time+1 <= n-1) and (n_futures[cur_node.time+1][cur_node.x][cur_node.y] == SAFE):
+                        if cur_node.time == 0:
+                            initial_d = Move.SHOOT
+                        else:
+                            initial_d = cur_node.initial_d
+                        return initial_d
 
             new_x, new_y = change_direction(cur_node.x, cur_node.y, cur_node.direction, gameboard.height, gameboard.width)
             #print("new {}, {}, {}, {}, {}, {}, {}".format(n_futures[cur_node.time+1][new_y][new_x], len(n_futures), len(n_futures[0]), len(n_futures[0][0]), cur_node.time+1, new_x, new_y))
@@ -159,7 +165,7 @@ class PlayerAI:
         bulls = gameboard.bullets
 
         #generate time series
-        n = 23
+        n = 18
         for t in range(n):
             safe_spots = deepcopy(base_matrix)
             if not player.shield_active:
@@ -271,15 +277,14 @@ class PlayerAI:
         while (not gameboard.is_turret_at_tile(i_x, i_y)) and (not gameboard.is_wall_at_tile(i_x, i_y)) and not (curr_x == i_x and curr_y == i_y):
             i_x = (i_x + dx) % gameboard.width
             i_y = (i_y + dy) % gameboard.height
-        if gameboard.is_turret_at_tile(i_x, i_y):
+
+        if gameboard.is_turret_at_tile(i_x, i_y) and not gameboard.turret_at_tile[i_x][i_y].is_dead:
             play = Move.SHOOT
             new_x, new_y = player.x, player.y
-
 
         if player.shield_count > 0:
             if (n_futures[1][new_x][new_y] == UNSAFE):
                 play = Move.SHIELD
-
 
         return play
 
