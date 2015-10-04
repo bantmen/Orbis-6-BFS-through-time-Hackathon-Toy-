@@ -106,68 +106,68 @@ class PlayerAI:
         n = 23
         for t in range(n):
             safe_spots = deepcopy(base_matrix)
-            
-            #update bullets
-            to_pop = []
-            for i in range(len(bulls)):
-                if bulls[i].direction == Direction.LEFT:
-                    dx, dy = -1, 0
-                elif bulls[i].direction == Direction.RIGHT:
-                    dx, dy = 1, 0
-                elif bulls[i].direction == Direction.DOWN:
-                    dx, dy = 0, 1
-                else: #UP
-                    dx, dy = 0, -1
+            if not player.shield_active:
+                #update bullets
+                to_pop = []
+                for i in range(len(bulls)):
+                    if bulls[i].direction == Direction.LEFT:
+                        dx, dy = -1, 0
+                    elif bulls[i].direction == Direction.RIGHT:
+                        dx, dy = 1, 0
+                    elif bulls[i].direction == Direction.DOWN:
+                        dx, dy = 0, 1
+                    else: #UP
+                        dx, dy = 0, -1
 
-                if safe_spots[(bull.x+dx)%gameboard.height][(bull.y+dy)%gameboard.width] == UNSAFE:
-                    to_pop.append(i)
+                    if safe_spots[(bull.x+dx)%gameboard.height][(bull.y+dy)%gameboard.width] == UNSAFE:
+                        to_pop.append(i)
 
-            this_turn = curr_turn + t
-            #laser
-            for tur in turs:
-                if (this_turn-1)%(tur.fire_time + tur.cooldown_time) < tur.fire_time:
-                    #CHECK IF IT'S ALIVE
-                    
-                    #go up
-                    x = tur.x
-                    y = (tur.y + 1)%gameboard.height
-                    while (not gameboard.is_wall_at_tile(x, y)) and (not gameboard.is_turret_at_tile(x, y)):
-                        safe_spots[x][y] = UNSAFE
-                        y = (y + 1) % gameboard.height
+                this_turn = curr_turn + t
+                #laser
+                for tur in turs:
+                    if (this_turn-1)%(tur.fire_time + tur.cooldown_time) < tur.fire_time:
+                        #CHECK IF IT'S ALIVE
+                        
+                        #go up
+                        x = tur.x
+                        y = (tur.y + 1)%gameboard.height
+                        while (not gameboard.is_wall_at_tile(x, y)) and (not gameboard.is_turret_at_tile(x, y)):
+                            safe_spots[x][y] = UNSAFE
+                            y = (y + 1) % gameboard.height
 
-                    #go down
-                    x = tur.x
-                    y = (tur.y - 1)%gameboard.height
-                    while (not gameboard.is_wall_at_tile(x, y)) and (not gameboard.is_turret_at_tile(x, y)):
-                        safe_spots[x][y] = UNSAFE
-                        y = (y - 1) % gameboard.height
+                        #go down
+                        x = tur.x
+                        y = (tur.y - 1)%gameboard.height
+                        while (not gameboard.is_wall_at_tile(x, y)) and (not gameboard.is_turret_at_tile(x, y)):
+                            safe_spots[x][y] = UNSAFE
+                            y = (y - 1) % gameboard.height
 
-                    #go left
-                    y = tur.y
-                    x = (tur.x + 1)%gameboard.width
-                    while (not gameboard.is_wall_at_tile(x, y)) and (not gameboard.is_turret_at_tile(x, y)):
-                        safe_spots[x][y] = UNSAFE
-                        x = (x + 1) % gameboard.width
+                        #go left
+                        y = tur.y
+                        x = (tur.x + 1)%gameboard.width
+                        while (not gameboard.is_wall_at_tile(x, y)) and (not gameboard.is_turret_at_tile(x, y)):
+                            safe_spots[x][y] = UNSAFE
+                            x = (x + 1) % gameboard.width
 
-                    #go right
-                    y = tur.y
-                    x = (tur.x - 1)%gameboard.width
-                    while (not gameboard.is_wall_at_tile(x, y)) and (not gameboard.is_turret_at_tile(x, y)):
-                        safe_spots[x][y] = UNSAFE
-                        x = (x - 1) % gameboard.width
+                        #go right
+                        y = tur.y
+                        x = (tur.x - 1)%gameboard.width
+                        while (not gameboard.is_wall_at_tile(x, y)) and (not gameboard.is_turret_at_tile(x, y)):
+                            safe_spots[x][y] = UNSAFE
+                            x = (x - 1) % gameboard.width
 
-            #fill bullets
-            for bull in bulls:
-                bull.x, bull.y = change_direction(bull.x, bull.y, bull.direction, gameboard.height, gameboard.width)
-                safe_spots[bull.x][bull.y] = UNSAFE
+                #fill bullets
+                for bull in bulls:
+                    bull.x, bull.y = change_direction(bull.x, bull.y, bull.direction, gameboard.height, gameboard.width)
+                    safe_spots[bull.x][bull.y] = UNSAFE
 
 
-            #pop dead bullets
-            temp = []
-            for c in range(len(bulls)):
-                if c not in to_pop:
-                    temp.append(bulls[c])
-            bulls = temp
+                #pop dead bullets
+                temp = []
+                for c in range(len(bulls)):
+                    if c not in to_pop:
+                        temp.append(bulls[c])
+                bulls = temp
 
             n_futures.append(safe_spots)
 
@@ -177,18 +177,56 @@ class PlayerAI:
         new_dirr = self.target_closest_point(player, gameboard, n, n_futures)
         p_dirr = player.direction
         #print(new_dirr)
+
+        new_x, new_y = player.x, player.y
+
         if new_dirr == None:
-            return Move.NONE
+            play =  Move.NONE
         elif new_dirr == p_dirr:
-            return Move.FORWARD
+            play = Move.FORWARD
+            new_x, new_y = change_direction(player.x, player.y, player.direction, gameboard.height, gameboard.width)
         elif new_dirr == Direction.UP:
-            return Move.FACE_UP
+            play = Move.FACE_UP
         elif new_dirr == Direction.DOWN:
-            return Move.FACE_DOWN
+            play = Move.FACE_DOWN
         elif new_dirr == Direction.LEFT:
-            return Move.FACE_LEFT
+            play = Move.FACE_LEFT
         else:
-            return Move.FACE_RIGHT
+            play = Move.FACE_RIGHT
+
+        if player.shield_count > 0:
+            if (player.shield_count > 1):
+                play = Move.SHIELD
+
+        #If you see a Turret, if you're safe, shoot it
+        curr_x = player.x
+        curr_y = player.y
+        if player.direction == Direction.LEFT:
+            dx, dy = -1, 0
+        elif player.direction == Direction.RIGHT:
+            dx, dy = 1, 0
+        elif player.direction == Direction.DOWN:
+            dx, dy = 0, 1
+        else: #UP
+            dx, dy = 0, -1
+
+        i_x = (player.x + dx) % gameboard.width
+        i_y = (player.y + dy) % gameboard.height
+
+        while (not gameboard.is_turret_at_tile(i_x, i_y)) and (not gameboard.is_wall_at_tile(i_x, i_y)) and not (curr_x == i_x and curr_y == i_y):
+            i_x = (i_x + dx) % gameboard.width
+            i_y = (i_y + dy) % gameboard.height
+        if gameboard.is_turret_at_tile(i_x, i_y):
+            play = Move.SHOOT
+            new_x, new_y = player.x, player.y
+
+
+        if player.shield_count > 0:
+            if (n_futures[0][new_x][new_y] == UNSAFE):
+                play = Move.SHIELD
+
+
+        return play
 
         # self.hardcoded_i += 1
         # return self.hardcoded[self.hardcoded_i%len(self.hardcoded)]
